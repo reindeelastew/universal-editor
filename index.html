@@ -21,7 +21,7 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
 @media(max-width:780px){.docbar .field{max-width:none;min-width:0;flex:1}main{grid-template-columns:1fr;margin:14px auto;gap:12px}aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.paper{min-height:560px;padding:25px 20px}#editor{min-height:480px}header{padding:0 10px}.actions .optional{display:none}}
 @media(max-width:460px){aside{grid-template-columns:1fr}.brand{font-size:14px}.version{display:none}.btn{padding:7px 8px}}
 @media print{body{background:#fff}header,aside,.toolbar,.footer{display:none!important}main{display:block;margin:0;padding:0;max-width:none}.paper{border:0;box-shadow:none;padding:0}#editor{min-height:0}}
-.diagram-builder{display:grid;gap:8px}.diagram-node-input{display:flex;gap:6px;align-items:center}.diagram-node-input .field{min-width:0}.diagram-node-input button{flex:0 0 auto}.diagram-preview{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;overflow:auto;min-height:90px}.diagram-preview svg{display:block;width:100%;height:auto;max-height:260px}.diagram-figure{margin:18px auto;text-align:center;max-width:100%;break-inside:avoid}.diagram-figure svg{display:block;width:100%;height:auto;max-height:520px}.diagram-figure figcaption{font-size:12px;color:#64748b;margin-top:5px}.diagram-connection-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:5px;align-items:center}.diagram-connection-row .field{min-width:0;padding:7px 5px;font-size:12px}@media(max-width:460px){.diagram-connection-row{grid-template-columns:1fr 1fr}.diagram-connection-row button{grid-column:2}}</style>
+.diagram-builder{display:grid;gap:8px}.diagram-node-input{display:flex;gap:6px;align-items:center}.diagram-node-input .field{min-width:0}.diagram-node-input button{flex:0 0 auto}.diagram-preview{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;overflow:auto;min-height:90px}.diagram-preview svg{display:block;width:100%;height:auto;max-height:260px}.diagram-figure{margin:18px auto;text-align:center;max-width:100%;break-inside:avoid}.diagram-figure svg{display:block;width:100%;height:auto;max-height:520px}.diagram-figure figcaption{font-size:12px;color:#64748b;margin-top:5px}.diagram-connection-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:5px;align-items:center}.diagram-connection-row .field{min-width:0;padding:7px 5px;font-size:12px}.diagram-preview svg [data-node-index]{cursor:grab;touch-action:none}.diagram-preview svg [data-node-index]:active{cursor:grabbing}.diagram-preview .diagram-node-shape{filter:drop-shadow(0 1px 1px #17203318)}@media(max-width:460px){.diagram-connection-row{grid-template-columns:1fr 1fr}.diagram-connection-row button{grid-column:2}}</style>
 </head>
 <body>
 <header>
@@ -82,7 +82,7 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
       <h3>図表作成（フローチャート）</h3>
       <div class="stack">
         <input class="field" id="diagramTitle" placeholder="図のタイトル（省略可）" aria-label="図のタイトル">
-        <select class="field" id="diagramDirection" aria-label="図の配置"><option value="horizontal">横向きに並べる</option><option value="vertical">縦向きに並べる</option><option value="custom">カスタム接続（分岐・ループ）</option></select><div id="diagramConnectionsPanel" class="stack" hidden><p class="hint">接続元・接続先を選ぶと、分岐や前の項目へ戻るループを作れます。矢印の通り道も接続ごとに指定できます。</p><div id="diagramConnections" class="diagram-builder"></div><button class="btn" id="addDiagramConnection" type="button">＋ 接続を追加</button></div>
+        <select class="field" id="diagramDirection" aria-label="図の配置"><option value="horizontal">横向きに並べる</option><option value="vertical">縦向きに並べる</option><option value="custom">カスタム接続（分岐・ループ）</option></select><div id="diagramConnectionsPanel" class="stack" hidden><p class="hint">接続元・接続先を選ぶと、分岐やループを作れます。プレビュー内の図形はドラッグして自由に配置できます。</p><div id="diagramConnections" class="diagram-builder"></div><button class="btn" id="addDiagramConnection" type="button">＋ 接続を追加</button></div>
         <div id="diagramNodes" class="diagram-builder">
           <div class="diagram-node-input"><input class="field" value="テーマを決める" aria-label="図形1の文字"><button class="chip" type="button" aria-label="この項目を削除" disabled>×</button></div>
           <div class="diagram-node-input"><input class="field" value="情報を集める" aria-label="図形2の文字"><button class="chip" type="button" aria-label="この項目を削除">×</button></div>
@@ -190,6 +190,9 @@ const diagramDirection=document.getElementById('diagramDirection');
 const diagramPreview=document.getElementById('diagramPreview');
 const diagramConnections=document.getElementById('diagramConnections');
 const diagramConnectionsPanel=document.getElementById('diagramConnectionsPanel');
+let diagramNodePositions=[];
+let activeDiagramDrag=null;
+function syncDiagramPositions(count){while(diagramNodePositions.length<count){const i=diagramNodePositions.length;diagramNodePositions.push({x:250,y:38+i*126});}if(diagramNodePositions.length>count)diagramNodePositions.length=count;}
 function getDiagramLabels(){return [...diagramNodes.querySelectorAll('input')].map(x=>x.value.trim()||'項目').slice(0,5);}
 function svgTextLines(label,x,y){
   const chars=[...label],lines=[];
@@ -201,8 +204,9 @@ function svgTextLines(label,x,y){
 function makeDiagramSVG(labels,direction){
   const w=180,h=76,gap=direction==='horizontal'?58:28;
   if(direction==='custom'){
-    const width=620,top=36,rowGap=126,height=Math.max(150,top*2+labels.length*rowGap);
-    const positions=labels.map((_,i)=>({x:220,y:top+i*rowGap}));
+    const width=720,height=Math.max(260,labels.length*130+70);
+    syncDiagramPositions(labels.length);
+    const positions=diagramNodePositions;
     const edges=[...diagramConnections.querySelectorAll('.diagram-connection-row')].map(row=>({
       from:Number(row.querySelector('[data-edge="from"]').value),
       to:Number(row.querySelector('[data-edge="to"]').value),
@@ -227,7 +231,7 @@ function makeDiagramSVG(labels,direction){
       shapes+='<path d="'+d+'" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#diagramArrow)"/>';
       if(e.label)shapes+='<text x="'+lx+'" y="'+ly+'" font-size="12" fill="#475569" paint-order="stroke" stroke="white" stroke-width="4">'+escapeHTML(e.label)+'</text>';
     });
-    positions.forEach((p,i)=>{shapes+='<rect x="'+p.x+'" y="'+p.y+'" width="'+w+'" height="'+h+'" rx="12" fill="#eef3ff" stroke="#3157c8" stroke-width="2"/>'+svgTextLines(labels[i],p.x+w/2,p.y+h/2);});
+    positions.forEach((p,i)=>{shapes+='<g data-node-index="'+i+'" transform="translate('+p.x+' '+p.y+')"><rect class="diagram-node-shape" x="0" y="0" width="'+w+'" height="'+h+'" rx="12" fill="#eef3ff" stroke="#3157c8" stroke-width="2"/>'+svgTextLines(labels[i],w/2,h/2)+'</g>';});
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="カスタムフローチャート"><defs><marker id="diagramArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#64748b"/></marker></defs>'+shapes+'</svg>';
   }
   const horizontal=direction==='horizontal';
@@ -277,6 +281,7 @@ function refreshDiagram(){
 diagramNodes.addEventListener('input',refreshDiagram);
 diagramNodes.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||diagramNodes.children.length<=2)return;
+  const removedIndex=[...diagramNodes.children].indexOf(b.parentElement);if(removedIndex>=0)diagramNodePositions.splice(removedIndex,1);
   b.parentElement.remove();
   [...diagramNodes.querySelectorAll('input')].forEach((input,i)=>input.setAttribute('aria-label','図形'+(i+1)+'の文字'));
   document.getElementById('addDiagramNode').disabled=diagramNodes.children.length>=5;
@@ -297,6 +302,32 @@ diagramDirection.addEventListener('change',()=>{
   }
   refreshDiagram();
 });
+diagramPreview.addEventListener('pointerdown',e=>{
+  const node=e.target.closest('[data-node-index]'),svg=e.target.closest('svg');
+  if(!node||!svg||diagramDirection.value!=='custom')return;
+  const index=Number(node.dataset.nodeIndex),matrix=svg.getScreenCTM();if(!matrix)return;
+  const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;
+  const p=point.matrixTransform(matrix.inverse());
+  activeDiagramDrag={index,node,svg,startX:p.x,startY:p.y,origin:{...diagramNodePositions[index]},pointerId:e.pointerId};
+  svg.setPointerCapture(e.pointerId);e.preventDefault();
+});
+diagramPreview.addEventListener('pointermove',e=>{
+  if(!activeDiagramDrag||e.pointerId!==activeDiagramDrag.pointerId)return;
+  const {svg,node,startX,startY,origin}=activeDiagramDrag,matrix=svg.getScreenCTM();if(!matrix)return;
+  const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;
+  const p=point.matrixTransform(matrix.inverse());
+  const x=Math.max(12,Math.min(720-192,origin.x+p.x-startX));
+  const y=Math.max(12,Math.min(900-88,origin.y+p.y-startY));
+  node.setAttribute('transform','translate('+x+' '+y+')');
+});
+function finishDiagramDrag(e){
+  if(!activeDiagramDrag||e.pointerId!==activeDiagramDrag.pointerId)return;
+  const {svg,node,startX,startY,origin,index}=activeDiagramDrag,matrix=svg.getScreenCTM();
+  if(matrix){const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;const p=point.matrixTransform(matrix.inverse());diagramNodePositions[index]={x:Math.max(12,Math.min(720-192,origin.x+p.x-startX)),y:Math.max(12,Math.min(900-88,origin.y+p.y-startY))};}
+  activeDiagramDrag=null;refreshDiagram();
+}
+diagramPreview.addEventListener('pointerup',finishDiagramDrag);
+diagramPreview.addEventListener('pointercancel',finishDiagramDrag);
 diagramConnections.addEventListener('change',refreshDiagram);
 diagramConnections.addEventListener('input',refreshDiagram);
 document.getElementById('addDiagramConnection').onclick=()=>{const n=getDiagramLabels().length;if(n<2)return;addDiagramConnection(0,1,'auto','');refreshDiagram();};
