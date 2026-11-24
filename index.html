@@ -227,7 +227,7 @@ document.getElementById('addDiagramNode').onclick=()=>{
   const input=document.createElement('input');input.className='field';input.value='新しい項目';input.setAttribute('aria-label','図形'+(diagramNodes.children.length+1)+'の文字');
   const remove=document.createElement('button');remove.className='chip';remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','この項目を削除');
   row.append(input,remove);diagramNodes.append(row);input.focus();refreshDiagram();
-  this.disabled=diagramNodes.children.length>=5;
+  document.getElementById('addDiagramNode').disabled=diagramNodes.children.length>=5;
 };
 diagramDirection.addEventListener('change',refreshDiagram);
 document.getElementById('insertDiagram').onclick=()=>{
