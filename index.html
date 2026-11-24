@@ -67,10 +67,15 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
     <div class="panel">
       <h3>化学式変換</h3>
       <div class="stack">
-        <input class="field" id="formulaInput" value="H2SO4 + 2NaOH" aria-label="化学式">
-        <button class="btn primary" id="insertFormula">変換して挿入</button>
+        <input class="field" id="formulaInput" value="H2SO4 + 2NaOH" aria-label="化学式・反応式" placeholder="例：H2 + O2 -> H2O">
+        <div class="chips" id="reactionArrows">
+          <button class="chip" type="button" data-arrow=" → ">→</button>
+          <button class="chip" type="button" data-arrow=" ⇌ ">⇌</button>
+          <button class="chip" type="button" data-arrow=" ⇄ ">⇄</button>
+        </div>
+        <button class="btn primary" id="insertFormula">変換して本文に挿入</button>
       </div>
-      <p>元素記号や括弧の後の数字を下付きにします。先頭の係数は維持します。</p>
+      <p>反応式全体を入力できます。矢印ボタンは入力欄のカーソル位置に挿入。数字は自動で下付きになります。</p>
     </div>
     <div class="panel">
       <h3>記号パレット</h3>
@@ -148,7 +153,15 @@ document.getElementById('quoteBtn').onclick=()=>{restoreSelection();document.exe
 document.getElementById('tableBtn').onclick=()=>insertHTML('<table><tbody><tr><th>項目</th><th>内容</th></tr><tr><td> </td><td> </td></tr><tr><td> </td><td> </td></tr></tbody></table><p></p>');
 document.getElementById('undoBtn').onclick=()=>{document.execCommand('undo');scheduleSave();};
 document.getElementById('redoBtn').onclick=()=>{document.execCommand('redo');scheduleSave();};
-document.getElementById('insertFormula').onclick=()=>{const v=document.getElementById('formulaInput').value.trim();if(v)insertText(chemistryToUnicode(v));};
+const formulaInput=document.getElementById('formulaInput');
+document.getElementById('reactionArrows').addEventListener('click',e=>{
+ const b=e.target.closest('[data-arrow]');if(!b)return;
+ const start=formulaInput.selectionStart??formulaInput.value.length;
+ const end=formulaInput.selectionEnd??start;
+ formulaInput.setRangeText(b.dataset.arrow,start,end,'end');
+ formulaInput.focus();
+});
+document.getElementById('insertFormula').onclick=()=>{const v=formulaInput.value.trim();if(v)insertText(chemistryToUnicode(v));};
 document.getElementById('symbols').addEventListener('click',e=>{if(e.target.classList.contains('chip'))insertText(e.target.textContent);});
 document.querySelectorAll('[data-insert]').forEach(b=>b.addEventListener('click',()=>insertText(b.dataset.insert)));
 let saveTimer;
