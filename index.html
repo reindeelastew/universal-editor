@@ -161,7 +161,13 @@ document.getElementById('reactionArrows').addEventListener('click',e=>{
  formulaInput.setRangeText(b.dataset.arrow,start,end,'end');
  formulaInput.focus();
 });
-document.getElementById('insertFormula').onclick=()=>{const v=formulaInput.value.trim();if(v)insertText(chemistryToUnicode(v));};
+document.getElementById('insertFormula').onclick=()=>{
+ const v=formulaInput.value.trim();
+ if(!v)return;
+ insertText(chemistryToUnicode(v));
+ formulaInput.value='';
+ formulaInput.focus();
+};
 document.getElementById('symbols').addEventListener('click',e=>{if(e.target.classList.contains('chip'))insertText(e.target.textContent);});
 document.querySelectorAll('[data-insert]').forEach(b=>b.addEventListener('click',()=>insertText(b.dataset.insert)));
 let saveTimer;
