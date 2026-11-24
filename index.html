@@ -21,7 +21,7 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
 @media(max-width:780px){.docbar .field{max-width:none;min-width:0;flex:1}main{grid-template-columns:1fr;margin:14px auto;gap:12px}aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.paper{min-height:560px;padding:25px 20px}#editor{min-height:480px}header{padding:0 10px}.actions .optional{display:none}}
 @media(max-width:460px){aside{grid-template-columns:1fr}.brand{font-size:14px}.version{display:none}.btn{padding:7px 8px}}
 @media print{body{background:#fff}header,aside,.toolbar,.footer{display:none!important}main{display:block;margin:0;padding:0;max-width:none}.paper{border:0;box-shadow:none;padding:0}#editor{min-height:0}}
-</style>
+.diagram-builder{display:grid;gap:8px}.diagram-node-input{display:flex;gap:6px;align-items:center}.diagram-node-input .field{min-width:0}.diagram-node-input button{flex:0 0 auto}.diagram-preview{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;overflow:auto;min-height:90px}.diagram-preview svg{display:block;width:100%;height:auto;max-height:260px}.diagram-figure{margin:18px auto;text-align:center;max-width:100%;break-inside:avoid}.diagram-figure svg{display:block;width:100%;height:auto;max-height:520px}.diagram-figure figcaption{font-size:12px;color:#64748b;margin-top:5px}</style>
 </head>
 <body>
 <header>
@@ -78,7 +78,23 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
       <p>反応式全体を入力できます。矢印ボタンは入力欄のカーソル位置に挿入。数字は自動で下付きになります。</p>
     </div>
     <div class="panel">
-      <h3>記号パレット</h3>
+<div class="panel">
+      <h3>図表作成（フローチャート）</h3>
+      <div class="stack">
+        <input class="field" id="diagramTitle" placeholder="図のタイトル（省略可）" aria-label="図のタイトル">
+        <select class="field" id="diagramDirection" aria-label="図の方向"><option value="horizontal">横向きに並べる</option><option value="vertical">縦向きに並べる</option></select>
+        <div id="diagramNodes" class="diagram-builder">
+          <div class="diagram-node-input"><input class="field" value="テーマを決める" aria-label="図形1の文字"><button class="chip" type="button" aria-label="この項目を削除" disabled>×</button></div>
+          <div class="diagram-node-input"><input class="field" value="情報を集める" aria-label="図形2の文字"><button class="chip" type="button" aria-label="この項目を削除">×</button></div>
+          <div class="diagram-node-input"><input class="field" value="結論をまとめる" aria-label="図形3の文字"><button class="chip" type="button" aria-label="この項目を削除">×</button></div>
+        </div>
+        <button class="btn" id="addDiagramNode" type="button">＋ 項目を追加</button>
+        <div class="diagram-preview" id="diagramPreview"><span class="hint">ここに図のプレビューが表示されます。</span></div>
+        <button class="btn primary" id="insertDiagram" type="button">図を本文に挿入</button>
+      </div>
+      <p>項目を追加・編集して、流れを表す図を作成できます。挿入した図は文書と一緒に保存・HTML出力されます。</p>
+    </div>
+          <h3>記号パレット</h3>
       <div class="chips" id="symbols">
         <button class="chip">→</button><button class="chip">⇌</button><button class="chip">↑</button><button class="chip">↓</button>
         <button class="chip">α</button><button class="chip">β</button><button class="chip">γ</button><button class="chip">Δ</button>
@@ -168,6 +184,59 @@ document.getElementById('insertFormula').onclick=()=>{
  formulaInput.value='';
  formulaInput.focus();
 };
+
+const diagramNodes=document.getElementById('diagramNodes');
+const diagramDirection=document.getElementById('diagramDirection');
+const diagramPreview=document.getElementById('diagramPreview');
+function getDiagramLabels(){return [...diagramNodes.querySelectorAll('input')].map(x=>x.value.trim()).filter(Boolean);}
+function svgTextLines(label,x,y){
+  const chars=[...label],lines=[];
+  for(let i=0;i<chars.length;i+=12)lines.push(chars.slice(i,i+12).join(''));
+  const shown=lines.slice(0,2);if(lines.length>2)shown[1]=[...shown[1]].slice(0,10).join('')+'…';
+  const offset=(shown.length-1)*9;
+  return shown.map((line,i)=>'<text x="'+x+'" y="'+(y-offset+i*18)+'" text-anchor="middle" dominant-baseline="middle" font-size="14" fill="#172033">'+escapeHTML(line)+'</text>').join('');
+}
+function makeDiagramSVG(labels,direction){
+  const horizontal=direction==='horizontal',w=180,h=76,gap=horizontal?58:28;
+  const width=horizontal?labels.length*w+(labels.length-1)*gap:280;
+  const height=horizontal?112:labels.length*h+(labels.length-1)*gap+12;
+  let shapes='';
+  labels.forEach((label,i)=>{
+    const x=horizontal?i*(w+gap)+(width-(labels.length*w+(labels.length-1)*gap))/2:(width-w)/2;
+    const y=horizontal?18:i*(h+gap)+6;
+    if(i<labels.length-1){
+      if(horizontal)shapes+='<line x1="'+(x+w+3)+'" y1="'+(y+h/2)+'" x2="'+(x+w+gap-9)+'" y2="'+(y+h/2)+'" stroke="#64748b" stroke-width="2" marker-end="url(#diagramArrow)"/>';
+      else shapes+='<line x1="'+(x+w/2)+'" y1="'+(y+h+2)+'" x2="'+(x+w/2)+'" y2="'+(y+h+gap-9)+'" stroke="#64748b" stroke-width="2" marker-end="url(#diagramArrow)"/>';
+    }
+    shapes+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="12" fill="#eef3ff" stroke="#3157c8" stroke-width="2"/>';
+    shapes+=svgTextLines(label,x+w/2,y+h/2);
+  });
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="フローチャート"><defs><marker id="diagramArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#64748b"/></marker></defs>'+shapes+'</svg>';
+}
+function refreshDiagram(){const labels=getDiagramLabels();diagramPreview.innerHTML=labels.length<2?'<span class="hint">項目を2つ以上入力してください。</span>':makeDiagramSVG(labels,diagramDirection.value);}
+diagramNodes.addEventListener('input',refreshDiagram);
+diagramNodes.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b||diagramNodes.children.length<=2)return;
+  b.parentElement.remove();
+  [...diagramNodes.querySelectorAll('input')].forEach((input,i)=>input.setAttribute('aria-label','図形'+(i+1)+'の文字'));
+  document.getElementById('addDiagramNode').disabled=diagramNodes.children.length>=5;refreshDiagram();
+});
+document.getElementById('addDiagramNode').onclick=()=>{
+  if(diagramNodes.children.length>=5)return;
+  const row=document.createElement('div');row.className='diagram-node-input';
+  const input=document.createElement('input');input.className='field';input.value='新しい項目';input.setAttribute('aria-label','図形'+(diagramNodes.children.length+1)+'の文字');
+  const remove=document.createElement('button');remove.className='chip';remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','この項目を削除');
+  row.append(input,remove);diagramNodes.append(row);input.focus();refreshDiagram();
+  this.disabled=diagramNodes.children.length>=5;
+};
+diagramDirection.addEventListener('change',refreshDiagram);
+document.getElementById('insertDiagram').onclick=()=>{
+  const labels=getDiagramLabels();if(labels.length<2){alert('項目を2つ以上入力してください。');return;}
+  const svg=makeDiagramSVG(labels,diagramDirection.value),title=document.getElementById('diagramTitle').value.trim();
+  insertHTML('<figure class="diagram-figure" contenteditable="false">'+svg+(title?'<figcaption>'+escapeHTML(title)+'</figcaption>':'')+'</figure><p><br></p>');
+};
+refreshDiagram();
+
 document.getElementById('symbols').addEventListener('click',e=>{if(e.target.classList.contains('chip'))insertText(e.target.textContent);});
 document.querySelectorAll('[data-insert]').forEach(b=>b.addEventListener('click',()=>insertText(b.dataset.insert)));
 let saveTimer;
