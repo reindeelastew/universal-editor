@@ -21,7 +21,7 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
 @media(max-width:780px){.docbar .field{max-width:none;min-width:0;flex:1}main{grid-template-columns:1fr;margin:14px auto;gap:12px}aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.paper{min-height:560px;padding:25px 20px}#editor{min-height:480px}header{padding:0 10px}.actions .optional{display:none}}
 @media(max-width:460px){aside{grid-template-columns:1fr}.brand{font-size:14px}.version{display:none}.btn{padding:7px 8px}}
 @media print{body{background:#fff}header,aside,.toolbar,.footer{display:none!important}main{display:block;margin:0;padding:0;max-width:none}.paper{border:0;box-shadow:none;padding:0}#editor{min-height:0}}
-.diagram-builder{display:grid;gap:8px}.diagram-node-input{display:flex;gap:6px;align-items:center}.diagram-node-input .field{min-width:0}.diagram-node-input button{flex:0 0 auto}.diagram-preview{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;overflow:auto;min-height:90px}.diagram-preview svg{display:block;width:100%;height:auto;max-height:260px}.diagram-figure{margin:18px auto;text-align:center;max-width:100%;break-inside:avoid}.diagram-figure svg{display:block;width:100%;height:auto;max-height:520px}.diagram-figure figcaption{font-size:12px;color:#64748b;margin-top:5px}</style>
+.diagram-builder{display:grid;gap:8px}.diagram-node-input{display:flex;gap:6px;align-items:center}.diagram-node-input .field{min-width:0}.diagram-node-input button{flex:0 0 auto}.diagram-preview{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;overflow:auto;min-height:90px}.diagram-preview svg{display:block;width:100%;height:auto;max-height:260px}.diagram-figure{margin:18px auto;text-align:center;max-width:100%;break-inside:avoid}.diagram-figure svg{display:block;width:100%;height:auto;max-height:520px}.diagram-figure figcaption{font-size:12px;color:#64748b;margin-top:5px}.diagram-connection-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:5px;align-items:center}.diagram-connection-row .field{min-width:0;padding:7px 5px;font-size:12px}@media(max-width:460px){.diagram-connection-row{grid-template-columns:1fr 1fr}.diagram-connection-row button{grid-column:2}}</style>
 </head>
 <body>
 <header>
@@ -82,7 +82,7 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
       <h3>図表作成（フローチャート）</h3>
       <div class="stack">
         <input class="field" id="diagramTitle" placeholder="図のタイトル（省略可）" aria-label="図のタイトル">
-        <select class="field" id="diagramDirection" aria-label="図の方向"><option value="horizontal">横向きに並べる</option><option value="vertical">縦向きに並べる</option></select>
+        <select class="field" id="diagramDirection" aria-label="図の配置"><option value="horizontal">横向きに並べる</option><option value="vertical">縦向きに並べる</option><option value="custom">カスタム接続（分岐・ループ）</option></select><div id="diagramConnectionsPanel" class="stack" hidden><p class="hint">接続元・接続先を選ぶと、分岐や前の項目へ戻るループを作れます。矢印の通り道も接続ごとに指定できます。</p><div id="diagramConnections" class="diagram-builder"></div><button class="btn" id="addDiagramConnection" type="button">＋ 接続を追加</button></div>
         <div id="diagramNodes" class="diagram-builder">
           <div class="diagram-node-input"><input class="field" value="テーマを決める" aria-label="図形1の文字"><button class="chip" type="button" aria-label="この項目を削除" disabled>×</button></div>
           <div class="diagram-node-input"><input class="field" value="情報を集める" aria-label="図形2の文字"><button class="chip" type="button" aria-label="この項目を削除">×</button></div>
@@ -92,7 +92,7 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
         <div class="diagram-preview" id="diagramPreview"><span class="hint">ここに図のプレビューが表示されます。</span></div>
         <button class="btn primary" id="insertDiagram" type="button">図を本文に挿入</button>
       </div>
-      <p>項目を追加・編集して、流れを表す図を作成できます。挿入した図は文書と一緒に保存・HTML出力されます。</p>
+      <p>項目を追加・編集して流れを作成できます。「カスタム接続」では接続先を自由に選び、分岐・合流・ループを表現できます。挿入した図は文書と一緒に保存・HTML出力されます。</p>
     </div>
           <h3>記号パレット</h3>
       <div class="chips" id="symbols">
@@ -188,7 +188,9 @@ document.getElementById('insertFormula').onclick=()=>{
 const diagramNodes=document.getElementById('diagramNodes');
 const diagramDirection=document.getElementById('diagramDirection');
 const diagramPreview=document.getElementById('diagramPreview');
-function getDiagramLabels(){return [...diagramNodes.querySelectorAll('input')].map(x=>x.value.trim()).filter(Boolean);}
+const diagramConnections=document.getElementById('diagramConnections');
+const diagramConnectionsPanel=document.getElementById('diagramConnectionsPanel');
+function getDiagramLabels(){return [...diagramNodes.querySelectorAll('input')].map(x=>x.value.trim()||'項目').slice(0,5);}
 function svgTextLines(label,x,y){
   const chars=[...label],lines=[];
   for(let i=0;i<chars.length;i+=12)lines.push(chars.slice(i,i+12).join(''));
@@ -197,7 +199,38 @@ function svgTextLines(label,x,y){
   return shown.map((line,i)=>'<text x="'+x+'" y="'+(y-offset+i*18)+'" text-anchor="middle" dominant-baseline="middle" font-size="14" fill="#172033">'+escapeHTML(line)+'</text>').join('');
 }
 function makeDiagramSVG(labels,direction){
-  const horizontal=direction==='horizontal',w=180,h=76,gap=horizontal?58:28;
+  const w=180,h=76,gap=direction==='horizontal'?58:28;
+  if(direction==='custom'){
+    const width=620,top=36,rowGap=126,height=Math.max(150,top*2+labels.length*rowGap);
+    const positions=labels.map((_,i)=>({x:220,y:top+i*rowGap}));
+    const edges=[...diagramConnections.querySelectorAll('.diagram-connection-row')].map(row=>({
+      from:Number(row.querySelector('[data-edge="from"]').value),
+      to:Number(row.querySelector('[data-edge="to"]').value),
+      route:row.querySelector('[data-edge="route"]').value,
+      label:row.querySelector('[data-edge="label"]').value.trim()
+    })).filter(e=>Number.isInteger(e.from)&&Number.isInteger(e.to)&&e.from<labels.length&&e.to<labels.length&&e.from!==e.to);
+    let shapes='';
+    edges.forEach((e,i)=>{
+      const a=positions[e.from],b=positions[e.to];
+      let d, lx, ly;
+      if(e.route==='right'||(e.route==='auto'&&e.to<e.from)){
+        const side=width-48-i*7;d='M '+(a.x+w)+' '+(a.y+h/2)+' C '+side+' '+(a.y+h/2)+', '+side+' '+(b.y+h/2)+', '+(b.x+w)+' '+(b.y+h/2);lx=side-8;ly=(a.y+b.y)/2+h/2;
+      }else if(e.route==='left'){
+        const side=38+i*7;d='M '+a.x+' '+(a.y+h/2)+' C '+side+' '+(a.y+h/2)+', '+side+' '+(b.y+h/2)+', '+b.x+' '+(b.y+h/2);lx=side+8;ly=(a.y+b.y)/2+h/2;
+      }else if(e.route==='up'){
+        const sx=a.x+w/2,tx=b.x+w/2,sy=a.y,ty=b.y+h;d='M '+sx+' '+sy+' C '+(sx+100)+' '+(sy-45)+', '+(tx+100)+' '+(ty+45)+', '+tx+' '+ty;lx=(sx+tx)/2+70;ly=(sy+ty)/2;
+      }else if(e.route==='down'){
+        const sx=a.x+w/2,tx=b.x+w/2,sy=a.y+h,ty=b.y;d='M '+sx+' '+sy+' C '+(sx-100)+' '+(sy+45)+', '+(tx-100)+' '+(ty-45)+', '+tx+' '+ty;lx=(sx+tx)/2-70;ly=(sy+ty)/2;
+      }else{
+        const forward=e.to>e.from;const sx=a.x+w/2,tx=b.x+w/2,sy=forward?a.y+h:a.y,ty=forward?b.y:b.y+h;d='M '+sx+' '+sy+' L '+tx+' '+ty;lx=sx+13;ly=(sy+ty)/2;
+      }
+      shapes+='<path d="'+d+'" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#diagramArrow)"/>';
+      if(e.label)shapes+='<text x="'+lx+'" y="'+ly+'" font-size="12" fill="#475569" paint-order="stroke" stroke="white" stroke-width="4">'+escapeHTML(e.label)+'</text>';
+    });
+    positions.forEach((p,i)=>{shapes+='<rect x="'+p.x+'" y="'+p.y+'" width="'+w+'" height="'+h+'" rx="12" fill="#eef3ff" stroke="#3157c8" stroke-width="2"/>'+svgTextLines(labels[i],p.x+w/2,p.y+h/2);});
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="カスタムフローチャート"><defs><marker id="diagramArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#64748b"/></marker></defs>'+shapes+'</svg>';
+  }
+  const horizontal=direction==='horizontal';
   const width=horizontal?labels.length*w+(labels.length-1)*gap:280;
   const height=horizontal?112:labels.length*h+(labels.length-1)*gap+12;
   let shapes='';
@@ -208,18 +241,46 @@ function makeDiagramSVG(labels,direction){
       if(horizontal)shapes+='<line x1="'+(x+w+3)+'" y1="'+(y+h/2)+'" x2="'+(x+w+gap-9)+'" y2="'+(y+h/2)+'" stroke="#64748b" stroke-width="2" marker-end="url(#diagramArrow)"/>';
       else shapes+='<line x1="'+(x+w/2)+'" y1="'+(y+h+2)+'" x2="'+(x+w/2)+'" y2="'+(y+h+gap-9)+'" stroke="#64748b" stroke-width="2" marker-end="url(#diagramArrow)"/>';
     }
-    shapes+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="12" fill="#eef3ff" stroke="#3157c8" stroke-width="2"/>';
-    shapes+=svgTextLines(label,x+w/2,y+h/2);
+    shapes+='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="12" fill="#eef3ff" stroke="#3157c8" stroke-width="2"/>'+svgTextLines(label,x+w/2,y+h/2);
   });
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="フローチャート"><defs><marker id="diagramArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#64748b"/></marker></defs>'+shapes+'</svg>';
 }
-function refreshDiagram(){const labels=getDiagramLabels();diagramPreview.innerHTML=labels.length<2?'<span class="hint">項目を2つ以上入力してください。</span>':makeDiagramSVG(labels,diagramDirection.value);}
+function updateConnectionOptions(){
+  const labels=getDiagramLabels();
+  diagramConnections.querySelectorAll('.diagram-connection-row').forEach(row=>{
+    ['from','to'].forEach(which=>{
+      const select=row.querySelector('[data-edge="'+which+'"]'),old=select.value;
+      select.innerHTML=labels.map((label,i)=>'<option value="'+i+'">'+(i+1)+'. '+escapeHTML(label.slice(0,12))+'</option>').join('');
+      if(Number(old)<labels.length)select.value=old;
+    });
+  });
+}
+function addDiagramConnection(from=0,to=1,route='auto',label=''){
+  if(diagramConnections.children.length>=10)return;
+  const row=document.createElement('div');row.className='diagram-connection-row';
+  const makeSelect=(which,value,options)=>{const s=document.createElement('select');s.className='field';s.dataset.edge=which;s.setAttribute('aria-label',which==='from'?'接続元':'接続先');s.innerHTML=options;s.value=String(value);return s;};
+  const nodeOptions=getDiagramLabels().map((x,i)=>'<option value="'+i+'">'+(i+1)+'. '+escapeHTML(x.slice(0,12))+'</option>').join('');
+  const a=makeSelect('from',from,nodeOptions),b=makeSelect('to',to,nodeOptions);
+  const routes='<option value="auto">自動</option><option value="right">右側を回る</option><option value="left">左側を回る</option><option value="up">上側を通る</option><option value="down">下側を通る</option>';
+  const r=makeSelect('route',route,routes);
+  const l=document.createElement('input');l.className='field';l.dataset.edge='label';l.placeholder='矢印のラベル';l.value=label;
+  const del=document.createElement('button');del.type='button';del.className='chip';del.textContent='×';del.setAttribute('aria-label','接続を削除');del.onclick=()=>{row.remove();refreshDiagram();};
+  row.append(a,b,r,l,del);diagramConnections.append(row);
+}
+function refreshDiagram(){
+  const labels=getDiagramLabels(),custom=diagramDirection.value==='custom';
+  diagramConnectionsPanel.hidden=!custom;
+  updateConnectionOptions();
+  document.getElementById('addDiagramConnection').disabled=diagramConnections.children.length>=10;
+  diagramPreview.innerHTML=labels.length<2?'<span class="hint">項目を2つ以上入力してください。</span>':makeDiagramSVG(labels,diagramDirection.value);
+}
 diagramNodes.addEventListener('input',refreshDiagram);
 diagramNodes.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||diagramNodes.children.length<=2)return;
   b.parentElement.remove();
   [...diagramNodes.querySelectorAll('input')].forEach((input,i)=>input.setAttribute('aria-label','図形'+(i+1)+'の文字'));
-  document.getElementById('addDiagramNode').disabled=diagramNodes.children.length>=5;refreshDiagram();
+  document.getElementById('addDiagramNode').disabled=diagramNodes.children.length>=5;
+  refreshDiagram();
 });
 document.getElementById('addDiagramNode').onclick=()=>{
   if(diagramNodes.children.length>=5)return;
@@ -229,7 +290,16 @@ document.getElementById('addDiagramNode').onclick=()=>{
   row.append(input,remove);diagramNodes.append(row);input.focus();refreshDiagram();
   document.getElementById('addDiagramNode').disabled=diagramNodes.children.length>=5;
 };
-diagramDirection.addEventListener('change',refreshDiagram);
+diagramDirection.addEventListener('change',()=>{
+  if(diagramDirection.value==='custom'&&diagramConnections.children.length===0){
+    for(let i=0;i<getDiagramLabels().length-1;i++)addDiagramConnection(i,i+1,'auto','');
+    addDiagramConnection(getDiagramLabels().length-1,0,'right','戻る');
+  }
+  refreshDiagram();
+});
+diagramConnections.addEventListener('change',refreshDiagram);
+diagramConnections.addEventListener('input',refreshDiagram);
+document.getElementById('addDiagramConnection').onclick=()=>{const n=getDiagramLabels().length;if(n<2)return;addDiagramConnection(0,1,'auto','');refreshDiagram();};
 document.getElementById('insertDiagram').onclick=()=>{
   const labels=getDiagramLabels();if(labels.length<2){alert('項目を2つ以上入力してください。');return;}
   const svg=makeDiagramSVG(labels,diagramDirection.value),title=document.getElementById('diagramTitle').value.trim();
