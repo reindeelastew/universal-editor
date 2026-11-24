@@ -21,7 +21,7 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
 @media(max-width:780px){.docbar .field{max-width:none;min-width:0;flex:1}main{grid-template-columns:1fr;margin:14px auto;gap:12px}aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.paper{min-height:560px;padding:25px 20px}#editor{min-height:480px}header{padding:0 10px}.actions .optional{display:none}}
 @media(max-width:460px){aside{grid-template-columns:1fr}.brand{font-size:14px}.version{display:none}.btn{padding:7px 8px}}
 @media print{body{background:#fff}header,aside,.toolbar,.footer{display:none!important}main{display:block;margin:0;padding:0;max-width:none}.paper{border:0;box-shadow:none;padding:0}#editor{min-height:0}}
-.diagram-builder{display:grid;gap:8px}.diagram-node-input{display:flex;gap:6px;align-items:center}.diagram-node-input .field{min-width:0}.diagram-node-input button{flex:0 0 auto}.diagram-preview{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;overflow:auto;min-height:90px}.diagram-preview svg{display:block;width:100%;height:auto;max-height:260px}.diagram-figure{margin:18px auto;text-align:center;max-width:100%;break-inside:avoid}.diagram-figure svg{display:block;width:100%;height:auto;max-height:520px}.diagram-figure figcaption{font-size:12px;color:#64748b;margin-top:5px}.diagram-connection-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:5px;align-items:center}.diagram-connection-row .field{min-width:0;padding:7px 5px;font-size:12px}.diagram-preview svg [data-node-index]{cursor:grab;touch-action:none}.diagram-preview svg [data-node-index]:active{cursor:grabbing}.diagram-preview .diagram-node-shape{filter:drop-shadow(0 1px 1px #17203318)}@media(max-width:460px){.diagram-connection-row{grid-template-columns:1fr 1fr}.diagram-connection-row button{grid-column:2}}</style>
+.diagram-builder{display:grid;gap:8px}.diagram-node-input{display:flex;gap:6px;align-items:center}.diagram-node-input .field{min-width:0}.diagram-node-input button{flex:0 0 auto}.diagram-preview{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px;overflow:auto;min-height:180px;height:320px;resize:vertical}.diagram-preview svg{display:block;width:var(--diagram-zoom,140%);max-width:none;height:auto;max-height:none}.diagram-zoom-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.diagram-zoom-controls input{flex:1;min-width:110px}.diagram-zoom-value{font-size:12px;color:var(--muted);min-width:42px;text-align:right}.diagram-figure{margin:18px auto;text-align:center;max-width:100%;break-inside:avoid}.diagram-figure svg{display:block;width:100%;height:auto;max-height:520px}.diagram-figure figcaption{font-size:12px;color:#64748b;margin-top:5px}.diagram-connection-row{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:5px;align-items:center}.diagram-connection-row .field{min-width:0;padding:7px 5px;font-size:12px}.diagram-preview svg [data-node-index]{cursor:grab;touch-action:none}.diagram-preview svg [data-node-index]:active{cursor:grabbing}.diagram-preview .diagram-node-shape{filter:drop-shadow(0 1px 1px #17203318)}@media(max-width:460px){.diagram-connection-row{grid-template-columns:1fr 1fr}.diagram-connection-row button{grid-column:2}}</style>
 </head>
 <body>
 <header>
@@ -89,7 +89,7 @@ aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:
           <div class="diagram-node-input"><input class="field" value="結論をまとめる" aria-label="図形3の文字"><button class="chip" type="button" aria-label="この項目を削除">×</button></div>
         </div>
         <button class="btn" id="addDiagramNode" type="button">＋ 項目を追加</button>
-        <div class="diagram-preview" id="diagramPreview"><span class="hint">ここに図のプレビューが表示されます。</span></div>
+        <div class="diagram-zoom-controls"><label class="hint" for="diagramZoom">プレビュー倍率</label><input id="diagramZoom" type="range" min="50" max="200" step="10" value="140" aria-label="プレビュー倍率"><output id="diagramZoomValue" class="diagram-zoom-value">140%</output><button class="chip" id="diagramZoomFit" type="button">幅に合わせる</button><button class="chip" id="diagramZoom100" type="button">100%</button></div><div class="diagram-preview" id="diagramPreview"><span class="hint">ここに図のプレビューが表示されます。</span></div>
         <button class="btn primary" id="insertDiagram" type="button">図を本文に挿入</button>
       </div>
       <p>項目を追加・編集して流れを作成できます。「カスタム接続」では接続先を自由に選び、分岐・合流・ループを表現できます。挿入した図は文書と一緒に保存・HTML出力されます。</p>
@@ -188,6 +188,13 @@ document.getElementById('insertFormula').onclick=()=>{
 const diagramNodes=document.getElementById('diagramNodes');
 const diagramDirection=document.getElementById('diagramDirection');
 const diagramPreview=document.getElementById('diagramPreview');
+const diagramZoom=document.getElementById('diagramZoom');
+const diagramZoomValue=document.getElementById('diagramZoomValue');
+function setDiagramZoom(value){const zoom=Math.max(50,Math.min(200,Number(value)||100));diagramZoom.value=String(zoom);diagramZoomValue.textContent=zoom+'%';diagramPreview.style.setProperty('--diagram-zoom',zoom+'%');}
+diagramZoom.addEventListener('input',()=>setDiagramZoom(diagramZoom.value));
+document.getElementById('diagramZoomFit').onclick=()=>setDiagramZoom(100);
+document.getElementById('diagramZoom100').onclick=()=>setDiagramZoom(100);
+setDiagramZoom(140);
 const diagramConnections=document.getElementById('diagramConnections');
 const diagramConnectionsPanel=document.getElementById('diagramConnectionsPanel');
 let diagramNodePositions=[];
