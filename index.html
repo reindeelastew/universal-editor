@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#172554">
+<title>Universal Editor 0.2</title>
+<style>
+:root{color-scheme:light;--ink:#172033;--muted:#64748b;--line:#dbe2ea;--panel:#f7f9fc;--blue:#3157c8;--blue2:#eaf0ff}
+*{box-sizing:border-box}body{margin:0;background:#eef2f7;color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{height:62px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:sticky;top:0;z-index:5}
+.brand{font-weight:800;letter-spacing:-.3px}.brand span{color:var(--blue)}.version{font-size:11px;color:var(--muted);margin-left:8px}
+.actions{display:flex;gap:8px;align-items:center}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:8px 11px;font:inherit;font-size:13px;cursor:pointer}.btn:hover{background:var(--panel)}.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.btn:active{transform:translateY(1px)}
+main{max-width:1100px;margin:26px auto;padding:0 18px;display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:20px}
+.workspace{min-width:0}.docbar{display:flex;align-items:center;gap:12px;padding:0 0 10px}.docbar .field{font-size:15px;font-weight:650;max-width:480px}.docbar .status{white-space:nowrap}.toolbar{background:#fff;border:1px solid var(--line);border-radius:12px 12px 0 0;padding:10px;display:flex;flex-wrap:wrap;gap:6px}.toolbar .btn{padding:6px 9px;min-width:34px}.toolbar .separator{width:1px;background:var(--line);margin:2px 3px}
+.paper{background:#fff;border:1px solid var(--line);border-top:0;min-height:690px;padding:clamp(24px,5vw,66px);box-shadow:0 8px 30px #263b5b0a}
+#editor{outline:none;min-height:570px;font-size:16px;line-height:1.9;overflow-wrap:anywhere}#editor:empty:before{content:"ここから文書を作成できます…";color:#9aa6b6}
+#editor h1{font-size:28px;line-height:1.3;margin:0 0 18px}#editor h2{font-size:21px;margin:25px 0 10px}#editor table{border-collapse:collapse;width:100%;margin:14px 0}#editor td,#editor th{border:1px solid #aeb9c8;padding:8px;text-align:left;min-width:55px}#editor blockquote{border-left:3px solid var(--blue);margin:14px 0;padding:6px 14px;color:#475569;background:#f8faff}
+aside{display:flex;flex-direction:column;gap:12px}.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}.panel h3{font-size:13px;margin:0 0 10px}.panel p{font-size:12px;color:var(--muted);margin:6px 0}.field{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit;font-size:13px}.stack{display:grid;gap:7px}.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1px solid #d9e2f3;background:#f7f9ff;border-radius:7px;padding:6px 8px;font-size:13px;cursor:pointer}.chip:hover{background:var(--blue2)}
+.status{font-size:11px;color:var(--muted)}.hint{font-size:12px;color:var(--muted);line-height:1.6}.footer{max-width:1100px;margin:0 auto;padding:0 18px 28px;color:var(--muted);font-size:11px}
+@media(max-width:780px){.docbar .field{max-width:none;min-width:0;flex:1}main{grid-template-columns:1fr;margin:14px auto;gap:12px}aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.paper{min-height:560px;padding:25px 20px}#editor{min-height:480px}header{padding:0 10px}.actions .optional{display:none}}
+@media(max-width:460px){aside{grid-template-columns:1fr}.brand{font-size:14px}.version{display:none}.btn{padding:7px 8px}}
+@media print{body{background:#fff}header,aside,.toolbar,.footer{display:none!important}main{display:block;margin:0;padding:0;max-width:none}.paper{border:0;box-shadow:none;padding:0}#editor{min-height:0}}
+</style>
+</head>
+<body>
+<header>
+  <div><span class="brand">Universal<span>Editor</span></span><span class="version">0.2 prototype</span></div>
+  <div class="actions">
+    <span class="status" id="saveStatus">この端末に保存</span>
+    <button class="btn optional" id="openBtn">開く</button>
+    <input id="fileInput" type="file" accept=".html,.htm,.txt,.json,text/html,text/plain,application/json" hidden>
+    <button class="btn optional" id="newBtn">新規</button>
+    <button class="btn" id="backupBtn">バックアップ</button>
+    <button class="btn" id="downloadBtn">HTML保存</button>
+    <button class="btn primary" id="printBtn">PDF / 印刷</button>
+  </div>
+</header>
+<main>
+  <section class="workspace">
+    <div class="docbar"><input id="docTitle" class="field" value="新しい文書" aria-label="文書タイトル"><span id="docStats" class="status">0文字</span></div>
+    <div class="toolbar" aria-label="編集ツール">
+      <button class="btn" data-cmd="bold" title="太字">B</button>
+      <button class="btn" data-cmd="italic" title="斜体"><i>I</i></button>
+      <button class="btn" data-cmd="underline" title="下線"><u>U</u></button>
+      <span class="separator"></span>
+      <button class="btn" id="subBtn" title="選択文字を下付き">x₂</button>
+      <button class="btn" id="supBtn" title="選択文字を上付き">x²</button>
+      <span class="separator"></span>
+      <button class="btn" id="h1Btn">見出し</button>
+      <button class="btn" id="listBtn">箇条書き</button>
+      <button class="btn" id="tableBtn">表</button>
+      <button class="btn" id="quoteBtn">引用</button>
+      <span class="separator"></span>
+      <button class="btn" id="undoBtn">↶</button>
+      <button class="btn" id="redoBtn">↷</button>
+    </div>
+    <div class="paper">
+      <div id="editor" contenteditable="true" spellcheck="false">
+        <h1>新しい文書</h1>
+        <p>Universal Editorの試作版です。ここに文章を入力できます。</p>
+        <p>右側の「化学式変換」に <b>H2SO4</b> や <b>Ca(OH)2</b> を入力してみてください。</p>
+      </div>
+    </div>
+  </section>
+  <aside>
+    <div class="panel">
+      <h3>化学式変換</h3>
+      <div class="stack">
+        <input class="field" id="formulaInput" value="H2SO4 + 2NaOH" aria-label="化学式">
+        <button class="btn primary" id="insertFormula">変換して挿入</button>
+      </div>
+      <p>元素記号や括弧の後の数字を下付きにします。先頭の係数は維持します。</p>
+    </div>
+    <div class="panel">
+      <h3>記号パレット</h3>
+      <div class="chips" id="symbols">
+        <button class="chip">→</button><button class="chip">⇌</button><button class="chip">↑</button><button class="chip">↓</button>
+        <button class="chip">α</button><button class="chip">β</button><button class="chip">γ</button><button class="chip">Δ</button>
+        <button class="chip">π</button><button class="chip">θ</button><button class="chip">μ</button><button class="chip">±</button>
+        <button class="chip">×</button><button class="chip">÷</button><button class="chip">≈</button><button class="chip">≠</button>
+        <button class="chip">≤</button><button class="chip">≥</button><button class="chip">∞</button><button class="chip">∑</button>
+      </div>
+      <p>クリックするとカーソル位置に挿入します。</p>
+    </div>
+    <div class="panel">
+      <h3>クイック入力</h3>
+      <div class="chips">
+        <button class="chip" data-insert="H₂O">H₂O</button>
+        <button class="chip" data-insert="CO₂">CO₂</button>
+        <button class="chip" data-insert="Na⁺">Na⁺</button>
+        <button class="chip" data-insert="SO₄²⁻">SO₄²⁻</button>
+        <button class="chip" data-insert="(aq)"> (aq) </button>
+        <button class="chip" data-insert="(s)">(s)</button>
+        <button class="chip" data-insert="(l)">(l)</button>
+        <button class="chip" data-insert="(g)">(g)</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>0.2で追加</h3>
+      <p class="hint">文書ファイルの読み込み、JSONバックアップ、タイトル保存、文字数カウントに対応しました。</p>
+    </div>
+    <div class="panel">
+      <h3>この試作版について</h3>
+      <p class="hint">文書はこのブラウザのローカル領域に自動保存されます。別端末との同期・アカウント・AI生成・DOCX出力はまだありません。</p>
+      <p class="hint">HTML保存は編集内容を含むHTMLファイルを出力します。PDFは印刷画面から「PDFとして保存」を選択してください。</p>
+    </div>
+  </aside>
+</main>
+<div class="footer">Universal Editor 0.2 · Prototype · Local-first · データはこの端末のブラウザ内に保存されます。</div>
+<script>
+const editor=document.getElementById('editor');
+const KEY='universal-editor-02-document';
+const TITLE_KEY='universal-editor-02-title';
+const titleInput=document.getElementById('docTitle');
+let savedRange=null;
+function rememberSelection(){const s=getSelection();if(s&&s.rangeCount&&editor.contains(s.anchorNode)){savedRange=s.getRangeAt(0).cloneRange();}}
+editor.addEventListener('keyup',rememberSelection);editor.addEventListener('mouseup',rememberSelection);editor.addEventListener('touchend',rememberSelection);
+function restoreSelection(){editor.focus();const s=getSelection();if(savedRange){s.removeAllRanges();s.addRange(savedRange);}}
+function insertHTML(html){restoreSelection();const s=getSelection();if(!s.rangeCount){editor.insertAdjacentHTML('beforeend',html);return;}const r=s.getRangeAt(0);r.deleteContents();const t=document.createElement('div');t.innerHTML=html;const frag=document.createDocumentFragment();let n,last;while((n=t.firstChild)){last=frag.appendChild(n);}r.insertNode(frag);if(last){r.setStartAfter(last);r.collapse(true);s.removeAllRanges();s.addRange(r);}rememberSelection();scheduleSave();}
+function insertText(text){insertHTML(escapeHTML(text).replace(/\n/g,'<br>'));}
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function safeImportedHTML(html){const box=document.createElement('div');box.innerHTML=html;box.querySelectorAll('script,style,iframe,object,embed,form,meta,link').forEach(n=>n.remove());box.querySelectorAll('*').forEach(el=>{[...el.attributes].forEach(a=>{if(/^on/i.test(a.name)||((a.name==='href'||a.name==='src')&&/^\s*javascript:/i.test(a.value)))el.removeAttribute(a.name);});});return box.innerHTML;}
+function chemistryToUnicode(input){
+  const sub={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+  let out='',i=0;
+  while(i<input.length){
+    const ch=input[i];
+    if((ch==='-'||ch==='+') && input.slice(i,i+2)==='->'){out+='→';i+=2;continue;}
+    if(ch==='<'&&input.slice(i,i+3)==='<->'){out+='⇌';i+=3;continue;}
+    if(/[0-9]/.test(ch)){
+      let j=i;while(j<input.length&&/[0-9]/.test(input[j]))j++;
+      const prev=input[i-1]||'';
+      const isSub=/[A-Za-z)\]}]/.test(prev);
+      out+=input.slice(i,j).split('').map(x=>isSub?sub[x]:x).join('');
+      i=j;continue;
+    }
+    out+=ch;i++;
+  }
+  return out;
+}
+document.querySelectorAll('[data-cmd]').forEach(b=>b.addEventListener('click',()=>{restoreSelection();document.execCommand(b.dataset.cmd,false,null);rememberSelection();scheduleSave();}));
+document.getElementById('subBtn').onclick=()=>{restoreSelection();document.execCommand('subscript');rememberSelection();scheduleSave();};
+document.getElementById('supBtn').onclick=()=>{restoreSelection();document.execCommand('superscript');rememberSelection();scheduleSave();};
+document.getElementById('h1Btn').onclick=()=>{restoreSelection();document.execCommand('formatBlock',false,'h2');scheduleSave();};
+document.getElementById('listBtn').onclick=()=>{restoreSelection();document.execCommand('insertUnorderedList');scheduleSave();};
+document.getElementById('quoteBtn').onclick=()=>{restoreSelection();document.execCommand('formatBlock',false,'blockquote');scheduleSave();};
+document.getElementById('tableBtn').onclick=()=>insertHTML('<table><tbody><tr><th>項目</th><th>内容</th></tr><tr><td> </td><td> </td></tr><tr><td> </td><td> </td></tr></tbody></table><p></p>');
+document.getElementById('undoBtn').onclick=()=>{document.execCommand('undo');scheduleSave();};
+document.getElementById('redoBtn').onclick=()=>{document.execCommand('redo');scheduleSave();};
+document.getElementById('insertFormula').onclick=()=>{const v=document.getElementById('formulaInput').value.trim();if(v)insertText(chemistryToUnicode(v));};
+document.getElementById('symbols').addEventListener('click',e=>{if(e.target.classList.contains('chip'))insertText(e.target.textContent);});
+document.querySelectorAll('[data-insert]').forEach(b=>b.addEventListener('click',()=>insertText(b.dataset.insert)));
+let saveTimer;
+function updateStats(){const text=editor.innerText||'';const chars=text.replace(/\s/g,'').length;document.getElementById('docStats').textContent=`${chars.toLocaleString()}文字`;}
+function scheduleSave(){document.getElementById('saveStatus').textContent='保存中…';updateStats();clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{localStorage.setItem(KEY,editor.innerHTML);localStorage.setItem(TITLE_KEY,titleInput.value);document.getElementById('saveStatus').textContent='保存済み';}catch(e){document.getElementById('saveStatus').textContent='保存できません';}},350);}
+titleInput.addEventListener('input',scheduleSave);
+editor.addEventListener('input',scheduleSave);
+try{const old=localStorage.getItem(KEY);if(old)editor.innerHTML=old;const oldTitle=localStorage.getItem(TITLE_KEY);if(oldTitle)titleInput.value=oldTitle;}catch(e){}
+updateStats();
+document.getElementById('printBtn').onclick=()=>window.print();
+document.getElementById('downloadBtn').onclick=()=>{
+ const doc='<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>'+escapeHTML(titleInput.value||'Universal Editor Document')+'</title><style>body{max-width:850px;margin:50px auto;padding:0 24px;font:16px/1.8 sans-serif;color:#172033}table{border-collapse:collapse;width:100%}td,th{border:1px solid #aaa;padding:8px}blockquote{border-left:3px solid #3157c8;padding-left:14px;color:#555}</style></head><body>'+editor.innerHTML+'</body></html>';
+ const blob=new Blob([doc],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(titleInput.value||'universal-editor-document').replace(/[\\/:*?"<>|]/g,'_')+'.html';a.click();URL.revokeObjectURL(url);
+};
+document.getElementById('newBtn').onclick=()=>{if(confirm('現在の文書を消去して新規作成しますか？')){editor.innerHTML='<h1>新しい文書</h1><p></p>';titleInput.value='新しい文書';scheduleSave();}};
+document.getElementById('openBtn').onclick=()=>document.getElementById('fileInput').click();
+document.getElementById('fileInput').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const content=await file.text();if(file.name.toLowerCase().endsWith('.json')){const data=JSON.parse(content);if(!data||typeof data.html!=='string')throw new Error('invalid backup');editor.innerHTML=safeImportedHTML(data.html);titleInput.value=typeof data.title==='string'?data.title:'読み込んだ文書';}else if(file.name.toLowerCase().endsWith('.txt')){editor.innerHTML='<p>'+escapeHTML(content).replace(/\r?\n/g,'<br>')+'</p>';titleInput.value=file.name.replace(/\.txt$/i,'');}else{const parsed=new DOMParser().parseFromString(content,'text/html');const body=parsed.body;if(!body)throw new Error('invalid html');editor.innerHTML=safeImportedHTML(body.innerHTML);titleInput.value=(parsed.querySelector('title')?.textContent||file.name).replace(/\.(html?|txt)$/i,'');}scheduleSave();document.getElementById('saveStatus').textContent='読み込み完了';}catch(err){alert('ファイルを読み込めませんでした。HTML・TXT・Universal EditorのJSONバックアップを選んでください。');}e.target.value='';});
+document.getElementById('backupBtn').onclick=()=>{const data={format:'universal-editor-backup',version:'0.2',title:titleInput.value,html:editor.innerHTML,savedAt:new Date().toISOString()};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(titleInput.value||'document').replace(/[\\/:*?"<>|]/g,'_')+'.uebackup.json';a.click();URL.revokeObjectURL(url);};
+document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();scheduleSave();}});
+</script>
+</body>
+</html>
